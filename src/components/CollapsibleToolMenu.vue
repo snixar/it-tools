@@ -1,15 +1,40 @@
 <script setup lang="ts">
 import { useStorage } from '@vueuse/core';
 import { useThemeVars } from 'naive-ui';
-import { RouterLink, useRoute } from 'vue-router';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
 import MenuIconItem from './MenuIconItem.vue';
 import type { Tool, ToolCategory } from '@/tools/tools.types';
 
 const props = withDefaults(defineProps<{ toolsByCategory?: ToolCategory[] }>(), { toolsByCategory: () => [] });
 const { toolsByCategory } = toRefs(props);
 const route = useRoute();
+const router = useRouter();
 
-const makeLabel = (tool: Tool) => () => h(RouterLink, { to: tool.path }, { default: () => tool.name });
+const handleToolClick = (tool: Tool) => {
+  if (route.path === '/') {
+    // Already on home page, scroll to tool
+    const hash = tool.path.slice(1); // remove leading slash
+    window.location.hash = hash;
+    // The scroll will be handled by the Home.page.vue's scrollToTool
+    // but we can also directly scroll
+    const element = document.getElementById(hash);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  } else {
+    // Navigate to tool page
+    router.push(tool.path);
+  }
+};
+
+const makeLabel = (tool: Tool) => () => h('a', {
+  href: 'javascript:void(0)',
+  onClick: (e: Event) => {
+    e.preventDefault();
+    handleToolClick(tool);
+  },
+}, tool.name);
+
 const makeIcon = (tool: Tool) => () => h(MenuIconItem, { tool });
 
 const collapsedCategories = useStorage<Record<string, boolean>>(
@@ -25,10 +50,25 @@ const collapsedCategories = useStorage<Record<string, boolean>>(
   },
 );
 
+function scrollToCategory(categoryName: string) {
+  const slug = categoryName.toLowerCase().replace(/\s+/g, '-');
+  if (route.path === '/') {
+    // scroll to element
+    const element = document.getElementById(slug);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  } else {
+    // navigate to home with hash
+    router.push({ path: '/', hash: `#${slug}` });
+  }
+}
+
 function toggleCategoryCollapse({ name }: { name: string }) {
   const current = collapsedCategories.value[name];
   // 如果当前是 undefined，则视为 true（折叠），所以切换后应为 false（展开）
   collapsedCategories.value[name] = current === undefined ? false : !current;
+  scrollToCategory(name);
 }
 
 const menuOptions = computed(() =>

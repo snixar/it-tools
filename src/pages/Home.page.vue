@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { IconDragDrop } from '@tabler/icons-vue';
 import { useHead } from '@vueuse/head';
-import { computed } from 'vue';
+import { computed, onMounted, nextTick } from 'vue';
 import Draggable from 'vuedraggable';
 import ToolCard from '../components/ToolCard.vue';
 import { useToolStore } from '@/tools/tools.store';
 import { config } from '@/config';
+import type { Tool } from '@/tools/tools.types';
 
 const toolStore = useToolStore();
 
@@ -13,11 +14,37 @@ useHead({ title: 'IT Tools - Handy online tools for developers' });
 const { t } = useI18n();
 
 const favoriteTools = computed(() => toolStore.favoriteTools);
+const toolsByCategory = computed(() => toolStore.toolsByCategory);
+
+const categorizedTools = computed(() =>
+  toolsByCategory.value.map(category => ({
+    ...category,
+    components: category.components as (Tool & { category: string })[],
+  }))
+);
 
 // Update favorite tools order when drag is finished
 function onUpdateFavoriteTools() {
   toolStore.updateFavoriteTools(favoriteTools.value); // Update the store with the new order
 }
+
+// Scroll to tool card based on hash
+function scrollToTool() {
+  const hash = window.location.hash;
+  if (hash) {
+    const id = hash.slice(1); // remove '#'
+    const element = document.getElementById(id);
+    if (element) {
+      nextTick(() => {
+        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    }
+  }
+}
+
+onMounted(() => {
+  scrollToTool();
+});
 </script>
 
 <template>
@@ -55,11 +82,13 @@ function onUpdateFavoriteTools() {
         </div>
       </div>
 
-      <h3 class="mb-5px mt-25px text-neutral-400 font-500">
-        {{ $t('home.categories.allTools') }}
-      </h3>
-      <div class="grid grid-cols-1 gap-12px lg:grid-cols-3 md:grid-cols-3 sm:grid-cols-2 xl:grid-cols-4">
-        <ToolCard v-for="tool in toolStore.tools" :key="tool.name" :tool="tool" />
+      <div v-for="category in categorizedTools" :key="category.name" class="category-section">
+        <h3 :id="category.name.toLowerCase().replace(/\s+/g, '-')" class="mb-5px mt-25px text-neutral-400 font-500">
+          {{ category.name }}
+        </h3>
+        <div class="grid grid-cols-1 gap-12px lg:grid-cols-3 md:grid-cols-3 sm:grid-cols-2 xl:grid-cols-4">
+          <ToolCard v-for="tool in category.components" :key="tool.name" :tool="tool" />
+        </div>
       </div>
     </div>
   </div>
